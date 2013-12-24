@@ -1,0 +1,107 @@
+From 6512b50d70f7514e5765f2a094053f3edc92129d Mon Sep 17 00:00:00 2001
+From: Steve Lefevre <lefevre.10@osu.edu>
+Date: Sun, 22 Dec 2013 19:50:16 -0500
+Subject: [PATCH 1/2] Added an include file with the custom Exception class
+
+---
+ includes/common.inc        |    5 +++-
+ includes/drupal_strict.inc |   45 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 1 deletions(-)
+ create mode 100644 includes/drupal_strict.inc
+
+diff --git a/includes/common.inc b/includes/common.inc
+index 27fa190..082a838 100644
+--- a/includes/common.inc
++++ b/includes/common.inc
+@@ -5113,7 +5113,10 @@ function _drupal_bootstrap_full() {
+   require_once DRUPAL_ROOT . '/includes/ajax.inc';
+   require_once DRUPAL_ROOT . '/includes/token.inc';
+   require_once DRUPAL_ROOT . '/includes/errors.inc';
+-
++  
++  // drupal_strict
++  require_once DRUPAL_ROOT . '/includes/drupal_strict.inc';
++  
+   // Detect string handling method
+   unicode_check();
+   // Undo magic quotes
+diff --git a/includes/drupal_strict.inc b/includes/drupal_strict.inc
+new file mode 100644
+index 0000000..824a353
+--- /dev/null
++++ b/includes/drupal_strict.inc
+@@ -0,0 +1,45 @@
++<?php
++
++/**
++ * @file 
++ * Provides functions and classes for drupal_strict conformance checking.
++ */
++
++class DrupalStrictException extends Exception {
++  
++  /**
++   * Presently does nothing besides call the parent constructor.
++   */
++  public function __construct($message, $code = 0, Exception $previous = null) {
++    parent::__construct($message, $code, $previous);
++  }
++}
++
++/** 
++ * Has extra parameters to record the module and hook whence the problem originates.
++ */
++class DrupalStrictHookException extends Exception {
++  
++  protected $hook;
++  protected $module;
++  
++  public function __construct($message, $module, $hook, $code = 0, Exception $previous = null) {
++    $this->module = $module;
++    $this->hook = $hook;
++    parent::__construct($message, $code, $previous);
++    $this->message = "Module '$module' hook '$hook': " . $this->message;
++  }
++  
++  final public function getModule() {
++    return $this->module;
++  }
++  
++  final public function getHook() {
++    return $this->hook;
++  }
++ 
++  // override the __toString method to include the module and hook names 
++  public function __toString() {
++    return $this->message;
++  }
++}
+-- 
+1.7.9
+
+From ce597eb50efa83528fe2415a57c4effd01eb66dc Mon Sep 17 00:00:00 2001
+From: Steve Lefevre <lefevre.10@osu.edu>
+Date: Sun, 22 Dec 2013 19:56:57 -0500
+Subject: [PATCH 2/2] Added a strict check that hook_menu returns an array
+
+---
+ includes/menu.inc |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/includes/menu.inc b/includes/menu.inc
+index 2be0903..0752a30 100644
+--- a/includes/menu.inc
++++ b/includes/menu.inc
+@@ -2748,6 +2748,9 @@ function menu_router_build() {
+       }
+       $callbacks = array_merge($callbacks, $router_items);
+     }
++    else {
++      throw new DrupalStrictHookException(t("Hook does not return an array"), $module, 'menu');
++    }
+   }
+   // Alter the menu as defined in modules, keys are like user/%user.
+   drupal_alter('menu', $callbacks);
+-- 
+1.7.9
+
